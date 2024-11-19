@@ -6,189 +6,6 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// router.post('/add-calc', async (req, res) => {
-//     try {
-//         const { calcName, items, outputs, calculationtype, resetinterval, subinterval, delay } = req.body;
-
-//         if (!calcName || !Array.isArray(items) || items.length === 0) {
-//             return res.status(400).json({ error: "Invalid input data. 'calcName' and 'items' are required." });
-//         }
-
-//         if (!Array.isArray(outputs) || outputs.length === 0) {
-//             return res.status(400).json({ error: "Invalid input data. 'outputs' must be a non-empty array." });
-//         }
-
-//         const lastCalc = await ESCalc.findOne().sort({ CalculationId: -1 });
-//         let newCalculationId = 1;
-//         let lastMeasurandId = 1000;
-
-//         if (lastCalc) {
-//             newCalculationId = parseInt(lastCalc.CalculationId, 10) + 1;
-
-//             const maxMeasurandId = Math.max(...lastCalc.OutputList.map(output => output.MeasurandId));
-//             lastMeasurandId = Math.max(lastMeasurandId, maxMeasurandId);
-//         }
-
-//         const inputList = items.map((item, index) => ({
-//             InputId: `I${index + 1}`,
-//             TerminalId: item.terminalId,
-//             MeasurandId: item.measurandId,
-//             MeasurandName: item.measurand,
-//             MeasurandValue: item.value
-//         }));
-
-//         const outputList = outputs.map((output, index) => ({
-//             MeasurandId: lastMeasurandId + index + 1,
-//             Formula: output.formula,
-//             MeasurandName: output.outputName,
-//             TerminalId: output.terminalId
-//         }));
-
-//         const newCalculation = new ESCalc({
-//             CalculationId: newCalculationId.toString(),
-//             CalculationName: calcName,
-//             InputList: inputList,
-//             OutputList: outputList,
-//             CalculationType: calculationtype,
-//             ResetInterval: resetinterval,
-//             SubInterval: subinterval,
-//             Delay: delay
-//         });
-
-//         await newCalculation.save();
-
-//         const updateDelay = delay * 1000;
-//         const updateSubInterval = subinterval * 1000;
-//         const updateResetInterval = resetinterval * 1000;
-//         const updatedstoredDelay = delay * 1000;
-
-//         const evaluateFormula = (formula, currentValues) => {
-//             try {
-//                 const evaluatedFormula = formula.replace(/I(\d+)/g, (match, p1) => {
-//                     const inputId = `I${p1}`;
-//                     return currentValues[inputId] !== undefined ? currentValues[inputId] : 0;
-//                 });
-//                 return eval(evaluatedFormula);
-//             } catch (error) {
-//                 console.error(`Error evaluating formula ${formula}:`, error);
-//                 return 0;
-//             }
-//         };
-
-//         setTimeout(async () => {
-//             try {
-//                 const currentValues = {};
-
-//                 // Step 1: Fetch current values for each item in the inputs (items list)
-//                 for (const item of items) {
-//                     const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${item.terminalId}`);
-//                     const measurandData = measurandResponse.data.Data;
-
-//                     // Map each input's MeasurandName to its MeasurandValue for formula evaluation
-//                     currentValues[`I${items.indexOf(item) + 1}`] = measurandData[item.measurand];
-//                 }
-
-//                 // Step 2: Evaluate each output formula using the fetched current values
-//                 for (const output of outputs) {
-//                     const calculatedValue = evaluateFormula(output.formula, currentValues);
-
-//                     // Step 3: Store the result back into CDNuts for the specific TerminalId
-//                     await axios.put(`http://localhost:8000/ESCalc/cdnuts/${output.terminalId}`, {
-//                         MeasurandName: output.outputName,
-//                         MeasurandValue: calculatedValue,
-//                     });
-//                     console.log(`Stored Delay: Updated CDNuts for TerminalId ${output.terminalId} with MeasurandName ${output.outputName} and MeasurandValue ${calculatedValue}`);
-//                 }
-//             } catch (error) {
-//                 console.error("Error during delayed CDNuts update:", error);
-//             }
-//         }, updateDelay);
-
-
-//         const intervalId = setInterval(async () => {
-//             try {
-//                 const currentValues = {};
-
-//                 for (const item of items) {
-//                     const itemTerminalId = item.terminalId;
-//                     const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${itemTerminalId}`);
-//                     const measurandData = measurandResponse.data.Data;
-
-//                     for (const input of inputList) {
-//                         if (input.TerminalId === itemTerminalId) {
-//                             currentValues[input.InputId] = measurandData[input.MeasurandName];
-//                         }
-//                     }
-//                 }
-
-//                 for (const output of outputList) {
-//                     const calculatedValue = evaluateFormula(output.Formula, currentValues);
-//                     await axios.put(`http://localhost:8000/ESCalc/updates/cdnuts/${output.MeasurandId}`, {
-//                         MeasurandName: output.MeasurandName,
-//                         UpdatedMeasurandValue: calculatedValue
-//                     });
-//                     console.log(` SubInterval: Updated output ${output.MeasurandName} to ${calculatedValue} for TerminalId ${output.TerminalId}`);
-//                 }
-
-//             } catch (error) {
-//                 console.error("Error fetching current values or updating outputs:", error);
-//             }
-//         }, updateSubInterval);
-
-//         const resetIntervalId = setInterval(async () => {
-//             try {
-//                 for (const output of outputList) {
-//                     const UpdatedValues = 0;
-//                     await axios.put(`http://localhost:8000/ESCalc/updates/values/cdnuts/${output.MeasurandId}`, {
-//                         MeasurandName: output.MeasurandName,
-//                         UpdatedValue: UpdatedValues
-//                     });
-//                     console.log(`ResetInterval: Reset output ${output.MeasurandName} to ${UpdatedValues} for TerminalId ${output.TerminalId}`);
-//                 }
-
-//             } catch (error) {
-//                 console.error("Error resetting output values:", error);
-//             }
-//         }, updateResetInterval);
-
-//         const delayIntervalId = setInterval(async () => {
-//             try {
-//                 const currentValues = {};
-
-//                 for (const item of items) {
-//                     const itemTerminalId = item.terminalId;
-//                     const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${itemTerminalId}`);
-//                     const measurandData = measurandResponse.data.Data;
-
-//                     for (const input of inputList) {
-//                         if (input.TerminalId === itemTerminalId) {
-//                             currentValues[input.InputId] = measurandData[input.MeasurandName];
-//                         }
-//                     }
-//                 }
-
-//                 for (const output of outputList) {
-//                     const calculatedValue = evaluateFormula(output.Formula, currentValues);
-//                     await axios.put(`http://localhost:8000/ESCalc/updates-delay/cdnuts/${output.MeasurandId}`, {
-//                         MeasurandName: output.MeasurandName,
-//                         UpdateddelayValue: calculatedValue
-//                     });
-//                     console.log(`Delay: Updated output ${output.MeasurandName} to ${calculatedValue} for TerminalId ${output.TerminalId}`);
-//                 }
-
-//             } catch (error) {
-//                 console.error("Error fetching current values or updating outputs:", error);
-//             }
-//         }, updatedstoredDelay);
-
-//         res.status(201).json({ message: "Calculation saved successfully", calculationid: newCalculationId });
-//     } catch (error) {
-//         console.error('Error saving calculation:', error);
-//         res.status(500).json({ error: "Failed to save calculation" });
-//     }
-// });
-
-
 router.post('/add-calc', async (req, res) => {
     try {
         const { calcName, items, outputs, calculationtype, resetinterval, subinterval, delay } = req.body;
@@ -203,7 +20,11 @@ router.post('/add-calc', async (req, res) => {
 
         // Generate unique IDs
         const lastCalc = await ESCalc.findOne().sort({ CalculationId: -1 });
-        let newCalculationId = lastCalc ? parseInt(lastCalc.CalculationId, 10) + 1 : 1;
+        let newCalculationId = 1;  // Default to 1 if no records are found
+
+        if (lastCalc && !isNaN(lastCalc.CalculationId)) {
+            newCalculationId = Number(lastCalc.CalculationId) + 1;
+        }
         let lastMeasurandId = 1000;
 
         if (lastCalc) {
@@ -262,7 +83,7 @@ router.post('/add-calc', async (req, res) => {
 
                 // Step 1: Fetch current values for each item in the inputs (items list)
                 for (const item of items) {
-                    const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${item.terminalId}`);
+                    const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${item.terminalId}`);
                     const measurandData = measurandResponse.data.Data;
 
                     // Map each input's MeasurandName to its MeasurandValue for formula evaluation
@@ -274,7 +95,7 @@ router.post('/add-calc', async (req, res) => {
                     const calculatedValue = evaluateFormula(output.formula, currentValues);
 
                     // Step 3: Store the result back into CDNuts for the specific TerminalId
-                    await axios.put(`http://localhost:8000/ESCalc/cdnuts/${output.terminalId}`, {
+                    await axios.put(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${output.terminalId}`, {
                         MeasurandName: output.outputName,
                         MeasurandValue: calculatedValue,
                     });
@@ -285,7 +106,49 @@ router.post('/add-calc', async (req, res) => {
             }
         }, updateDelay);
 
-      
+        const startCalculationLoop = async () => {
+            let delayTaskCompleted = false; // Flag to check if delay task has completed
+
+            const executeTasks = async () => {
+                console.log("Starting calculation loop");
+
+                // Delay Task - Executes once after `updateDelay`
+                setTimeout(async () => {
+                    await delayTask();
+                    // Mark delay task as completed
+                    delayTaskCompleted = true;
+                    // Check if it's time to run subIntervalTask after delayTask completes
+                    if (delayTaskCompleted) {
+                        console.log("Delay task completed, executing subIntervalTask.");
+                        // await subIntervalTask(); // Execute subIntervalTask after delayTask completes
+                    }
+                }, updateDelay);
+
+                // Sub-interval Task - Executes repeatedly every `updateSubInterval`
+                const subIntervalId = setInterval(async () => {
+                    if (!delayTaskCompleted) {
+                        console.log("Skipping sub-interval task as delay task is not completed yet");
+                        return; // Skip the subIntervalTask if delayTask is not completed
+                    }
+                    // If delayTask is completed, execute subIntervalTask
+                    await subIntervalTask();
+                    // After each sub-interval task, you may reset the delayTaskCompleted flag 
+                    // if needed, depending on your logic for handling subsequent delay tasks.
+                }, updateSubInterval);
+
+                // Reset Task - Executes once after `updateResetInterval`
+                setTimeout(async () => {
+                    // Mark delay task as completed
+                    delayTaskCompleted = false;
+                    await resetIntervalTask();
+                    // Restart the loop after reset
+                    clearInterval(subIntervalId);
+                    executeTasks(); // Restart the loop for the next cycle
+                }, updateResetInterval);
+            };
+
+            executeTasks();
+        };
 
         async function delayTask() {
             console.log("Running delay task");
@@ -304,55 +167,13 @@ router.post('/add-calc', async (req, res) => {
             }
         }
 
-        async function subIntervalrunTask(items, outputs, evaluateFormula) {
-            try {
-                const currentValues = {};
-
-                for (const item of items) {
-                    const itemTerminalId = item.terminalId;
-                    const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${itemTerminalId}`);
-                    const measurandData = measurandResponse.data.Data;
-
-                    for (const input of inputList) {
-                        if (input.TerminalId === itemTerminalId) {
-                            currentValues[input.InputId] = measurandData[input.MeasurandName];
-                        }
-                    }
-                }
-
-                for (const output of outputList) {
-                    const calculatedValue = evaluateFormula(output.Formula, currentValues);
-                    await axios.put(`http://localhost:8000/ESCalc/updates/cdnuts/${output.MeasurandId}`, {
-                        MeasurandName: output.MeasurandName,
-                        UpdatedMeasurandValue: calculatedValue
-                    });
-                    console.log(`SubInterval: Updated output ${output.MeasurandName} to ${calculatedValue} for TerminalId ${output.TerminalId}`);
-                }
-
-            } catch (error) {
-                console.error("Error fetching current values or updating outputs:", error);
-            }
-        }
-
-        async function resetIntervalrunTask(output) {
-            try {
-                await axios.put(`http://localhost:8000/ESCalc/updates/values/cdnuts/${output.MeasurandId}`, {
-                    MeasurandName: output.MeasurandName,
-                    UpdatedValue: 0
-                });
-                console.log(`Reset output ${output.MeasurandName} to 0 for TerminalId ${output.TerminalId}`);
-            } catch (error) {
-                console.error("Error resetting output values:", error);
-            }
-        }
-
         async function delayIntervalrunTask(items, outputs, evaluateFormula) {
             try {
                 const currentValues = {};
 
                 for (const item of items) {
                     const itemTerminalId = item.terminalId;
-                    const measurandResponse = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${itemTerminalId}`);
+                    const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${itemTerminalId}`);
                     const measurandData = measurandResponse.data.Data;
 
                     for (const input of inputList) {
@@ -364,7 +185,7 @@ router.post('/add-calc', async (req, res) => {
 
                 for (const output of outputList) {
                     const calculatedValue = evaluateFormula(output.Formula, currentValues);
-                    await axios.put(`http://localhost:8000/ESCalc/updates-delay/cdnuts/${output.MeasurandId}`, {
+                    await axios.put(`${process.env.REACT_APP_SERVER_URL}/updates-delay/cdnuts/${output.MeasurandId}`, {
                         MeasurandName: output.MeasurandName,
                         UpdateddelayValue: calculatedValue
                     });
@@ -376,36 +197,70 @@ router.post('/add-calc', async (req, res) => {
             }
         }
 
-        function startSequence() {
-            const taskSequence = [
-                { interval: updateDelay, task: delayTask }, // Executes after 60 seconds initially
-                { interval: updateSubInterval, task: subIntervalTask }, // Executes after 120 seconds
-                { interval: updateResetInterval, task: resetIntervalTask } // Executes after 180 seconds
-            ];
+        async function subIntervalrunTask(items, outputs, evaluateFormula) {
+            try {
+                const currentValues = {};
 
-            let currentTask = 0;
-            let loopStart = Date.now();
+                // Fetch current values for each input item
+                for (const item of items) {
+                    const itemTerminalId = item.terminalId;
+                    const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${itemTerminalId}`);
+                    const measurandData = measurandResponse.data.Data;
 
-            const loop = () => {
-                const { interval, task } = taskSequence[currentTask];
-                const nextExecutionTime = loopStart + interval;
+                    for (const input of inputList) {
+                        if (input.TerminalId === itemTerminalId) {
+                            currentValues[input.InputId] = measurandData[input.MeasurandName];
+                        }
+                    }
+                }
 
-                setTimeout(async () => {
-                    await task();
-                    currentTask = (currentTask + 1) % taskSequence.length;
+                for (const output of outputList) {
+                    // Fetch previous calculated value
+                    const previousResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/measurand/${output.MeasurandId}`);
+                    const previousCalculatedValue = parseFloat(previousResponse.data.MeasurandValue) || 0;  // Convert to number and default to 0 if not present
 
-                    if (currentTask === 0) {
-                        loopStart = Date.now(); // Reset the start time for the next cycle
+                    console.log(`Previous Value: ${previousCalculatedValue}`);
+
+                    // Calculate the new value
+                    const calculatedValue = parseFloat(evaluateFormula(output.Formula, currentValues)) || 0;  // Ensure calculatedValue is numeric
+
+                    // Determine the new UpdatedMeasurandValue based on calculation type
+                    let updatedValue;
+                    if (calculationtype === "stream") {
+                        updatedValue = previousCalculatedValue + calculatedValue;
+                    } else if (calculationtype === "single") {
+                        updatedValue = calculatedValue;
                     }
 
-                    loop(); // Recursive call to continue the sequence
-                }, nextExecutionTime - Date.now());
-            };
+                    // Update with the determined value
+                    await axios.put(`${process.env.REACT_APP_SERVER_URL}/updates/cdnuts/${output.MeasurandId}`, {
+                        MeasurandName: output.MeasurandName,
+                        UpdatedMeasurandValue: updatedValue
+                    });
 
-            loop(); // Start the sequence
+                    console.log(`SubInterval: Updated output ${output.MeasurandName} to ${updatedValue} for TerminalId ${output.TerminalId}`);
+                }
+
+
+            } catch (error) {
+                console.error("Error fetching current values or updating outputs:", error);
+            }
         }
 
-        startSequence();
+        async function resetIntervalrunTask(output) {
+            try {
+                await axios.put(`${process.env.REACT_APP_SERVER_URL}/updates/values/cdnuts/${output.MeasurandId}`, {
+                    MeasurandName: output.MeasurandName,
+                    UpdatedValue: 0
+                });
+                console.log(`Reset output ${output.MeasurandName} to 0 for TerminalId ${output.TerminalId}`);
+            } catch (error) {
+                console.error("Error resetting output values:", error);
+            }
+        }
+
+        // Start the loop after saving calculation successfully
+        startCalculationLoop();
 
         res.status(201).json({ message: "Calculation saved successfully", calculationid: newCalculationId });
     } catch (error) {
@@ -568,6 +423,33 @@ router.get('/cdnuts/:TerminalId', async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch cdnut', error });
     }
 });
+
+router.get('/cdnuts/measurand/:measurandId', async (req, res) => {
+    try {
+        const { measurandId } = req.params;
+
+        // Find the document in CDNuts collection
+        const cdnut = await CDNuts.findOne({
+            "MeasurandData.MeasurandId": parseInt(measurandId)
+        }, {
+            "MeasurandData.$": 1 // Select only the matching MeasurandData item
+        });
+
+        // Check if the document and MeasurandData exist
+        if (!cdnut || !cdnut.MeasurandData || cdnut.MeasurandData.length === 0) {
+            return res.status(404).json({ message: 'Measurand data not found' });
+        }
+
+        // Extract MeasurandName and MeasurandValue
+        const { MeasurandName, MeasurandValue } = cdnut.MeasurandData[0];
+
+        // Send the extracted fields as response
+        res.status(200).json({ MeasurandName, MeasurandValue });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch measurand data', error });
+    }
+});
+
 
 
 router.put('/cdnuts/:TerminalId', async (req, res) => {

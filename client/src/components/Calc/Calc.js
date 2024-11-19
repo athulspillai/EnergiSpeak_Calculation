@@ -22,6 +22,92 @@ import {
 import axios from 'axios';
 import { evaluate } from 'mathjs';
 
+const InputField = ({ label, value, onChange, disabled }) => (
+    <Grid container spacing={2} alignItems="center">
+        <Grid item xs={3} mb={3}>
+            <Typography variant="h6" component="label" sx={{ mb: 1 }}>
+                {label}
+            </Typography>
+        </Grid>
+        <Grid item xs={9} mb={3}>
+            <TextField
+                label={label}
+                variant="outlined"
+                fullWidth
+                value={value}
+                onChange={onChange}
+                disabled={disabled}
+            />
+        </Grid>
+    </Grid>
+);
+
+const SelectField = ({ label, value, onChange, options, disabled }) => (
+    <Grid container spacing={2} alignItems="center">
+        <Grid item xs={3}>
+            <Typography variant="h6" component="label" sx={{ mb: 1 }}>
+                {label}
+            </Typography>
+        </Grid>
+        <Grid item xs={9} sx={{ mb: 3 }}>
+            <FormControl fullWidth>
+                <InputLabel>{label}</InputLabel>
+                <Select
+                    value={value}
+                    onChange={onChange}
+                    label={label}
+                    disabled={disabled}
+                >
+                    {options.map((option) => (
+                        <MenuItem key={option.id} value={option.value}>
+                            {option.label}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </Grid>
+    </Grid>
+);
+
+const CustomButton = ({ onClick, label, disabled, variant = 'contained', color = 'primary', additionalStyles }) => (
+    <Button
+        onClick={onClick}
+        variant={variant}
+        color={color}
+        disabled={disabled}
+        sx={{
+            backgroundColor: '#007c87',
+            color: '#fff',
+            '&:hover': {
+                backgroundColor: '#005f6b',
+            },
+            ...additionalStyles,
+            mr: 3,
+        }}
+    >
+        {label}
+    </Button>
+);
+
+const TransparentCustomButton = ({ onClick, label, disabled, variant = 'contained', color = '', additionalStyles }) => (
+    <Button
+        onClick={onClick}
+        variant={variant}
+        color={color}
+        disabled={disabled}
+        sx={{
+            borderColor: '#007c87',
+            color: '#007c87',
+            '&:hover': {
+                borderColor: '#005f6b',
+                backgroundColor: '#007c8710',
+            },
+        }}
+    >
+        {label}
+    </Button>
+);
+
 function Calc() {
     const steps = ['Input Details', 'Add Formulas', 'Additional Settings'];
     const [activeStep, setActiveStep] = useState(0);
@@ -41,7 +127,6 @@ function Calc() {
     const [delay, setDelay] = useState('');
     const [isDisabled, setIsDisabled] = useState(false);
     const [isDisabled2, setIsDisabled2] = useState(false);
-    const [isDisabled3, setIsDisabled3] = useState(false);
     const [completedSteps, setCompletedSteps] = useState({
         0: false,
         1: false,
@@ -51,7 +136,7 @@ function Calc() {
     useEffect(() => {
         const fetchTerminals = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/ESCalc/esterminal');
+                const response = await axios.get(`${process.env.REACT_APP_SERVER_URL}/esterminal`);
                 setTerminalData(response.data);
             } catch (error) {
                 console.error('Error fetching terminal data:', error);
@@ -65,7 +150,7 @@ function Calc() {
             if (selectedTerminal) {
                 try {
                     const response = await axios.get(
-                        `http://localhost:8000/ESCalc/esterminal/${encodeURIComponent(selectedTerminal)}`
+                        `${process.env.REACT_APP_SERVER_URL}/esterminal/${encodeURIComponent(selectedTerminal)}`
                     );
                     setMeasurandData(response.data.MeasurandList || []);
                 } catch (error) {
@@ -86,13 +171,13 @@ function Calc() {
                 const exists = items.some(
                     item => item.terminalId === terminal._id && item.measurandId === measurand.MeasurandId
                 );
-                // if (exists) {
-                //     alert('This terminal and measurand combination already exists in the input list.');
-                //     return;
-                // }
+                if (exists) {
+                    alert('This terminal and measurand combination already exists in the input list.');
+                    return;
+                }
 
                 try {
-                    const response = await axios.get(`http://localhost:8000/ESCalc/cdnuts/${terminal._id}`);
+                    const response = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${terminal._id}`);
                     const measurandValue = response.data.Data[measurand.MeasurandName];
                     console.log(measurandValue);
 
@@ -179,7 +264,6 @@ function Calc() {
         // Convert the intervals and delay to numbers for comparison
         const resetIntervalNum = parseFloat(resetInterval);
         const subIntervalNum = parseFloat(subInterval);
-        const delayNum = parseFloat(delay);
 
         // Validate the conditions
         if (subIntervalNum >= resetIntervalNum) {
@@ -187,23 +271,10 @@ function Calc() {
             return;
         }
 
-        if (delayNum >= subIntervalNum) {
-            alert("Delay must be less than Sub Interval.");
-            return;
-        }
-
         // If all validations pass, proceed to submit
         handleSubmit();
 
     };
-
-    const handleBack = () => {
-        if (activeStep > 0) {
-            setActiveStep(prev => prev - 1);
-            setIsDisabled(false); // Re-enable inputs when going back
-        }
-    };
-
     const handleCancel = () => {
         setCalcName('');
         setSelectedTerminal('');
@@ -262,11 +333,9 @@ function Calc() {
             delay: delay
         };
 
-       
-
         try {
             // Send data to the server for saving the calculation
-            const response = await axios.post('http://localhost:8000/ESCalc/add-calc', calculationData);
+            const response = await axios.post(`${process.env.REACT_APP_SERVER_URL}/add-calc`, calculationData);
             alert('Calculation saved successfully!');
             handleCancel(); // Reset the form after successful submission
         } catch (error) {
@@ -277,9 +346,6 @@ function Calc() {
         // Refresh the page
         window.location.reload();
     };
-
-
-
 
     const handleFormulaCancel = () => {
         setAddFormula('');
@@ -310,8 +376,6 @@ function Calc() {
         );
     };
 
-
-
     return (
         <Box sx={{ p: 4, margin: 'auto', mt: 5 }}>
             <Grid container spacing={4}>
@@ -319,84 +383,28 @@ function Calc() {
                     <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 2 }}>
                         Calculation
                     </Typography>
-                    <Box sx={{ mb: 3 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={3}>
-                                <Typography variant="h6" component="label" htmlFor="calc-name" sx={{ mb: 1 }}>
-                                    Calc Name
-                                </Typography>
-                            </Grid>
-                            <Grid item xs={9}>
-                                <TextField
-                                    id="calc-name"
-                                    label="Calc Name"
-                                    type="text"
-                                    variant="outlined"
-                                    fullWidth
-                                    value={calcName}
-                                    onChange={(e) => setCalcName(e.target.value)}
-                                    placeholder="Enter calculation name"
-                                    disabled={isDisabled} // Disable when isDisabled is true
-                                />
-                            </Grid>
-                        </Grid>
-                    </Box>
-                    <Box sx={{ mb: 3 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={3}>
-                                <Typography variant="h6" component="label" htmlFor="terminal-label" sx={{ mb: 1 }}>
-                                    Terminal
-                                </Typography>
-                            </Grid>
-                            <Grid item xs={9}>
-                                <FormControl fullWidth>
-                                    <InputLabel id="terminal-label">Terminal</InputLabel>
-                                    <Select
-                                        labelId="terminal-label"
-                                        value={selectedTerminal}
-                                        label="Terminal"
-                                        onChange={(e) => setSelectedTerminal(e.target.value)}
-                                        disabled={isDisabled} // Disable when isDisabled is true
-                                    >
-                                        {terminalData.map((terminal) => (
-                                            <MenuItem key={terminal._id} value={terminal.DisplayName}>
-                                                {terminal.DisplayName}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        </Grid>
-                    </Box>
-                    <Box sx={{ mb: 3 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={3}>
-                                <Typography variant="h6" component="label" htmlFor="measurand-label" sx={{ mb: 1 }}>
-                                    Measurand
-                                </Typography>
-                            </Grid>
-                            <Grid item xs={9}>
-                                <FormControl fullWidth>
-                                    <InputLabel id="measurand-label">Measurand</InputLabel>
-                                    <Select
-                                        labelId="measurand-label"
-                                        value={selectedMeasurand}
-                                        label="Measurand"
-                                        onChange={(e) => setSelectedMeasurand(e.target.value)}
-                                        disabled={isDisabled} // Disable when isDisabled is true
-                                    >
-                                        {measurandData.map((measurand) => (
-                                            <MenuItem key={measurand.MeasurandId} value={measurand.MeasurandName}>
-                                                {measurand.MeasurandName}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        </Grid>
-                    </Box>
+                    <InputField
+                        label="Calc Name"
+                        value={calcName}
+                        onChange={(e) => setCalcName(e.target.value)}
+                        disabled={isDisabled}
+                    />
+                    <SelectField
+                        label="Terminal"
+                        value={selectedTerminal}
+                        onChange={(e) => setSelectedTerminal(e.target.value)}
+                        options={terminalData.map(t => ({ id: t._id, value: t.DisplayName, label: t.DisplayName }))}
+                        disabled={isDisabled}
+                    />
+                    <SelectField
+                        label="Measurand"
+                        value={selectedMeasurand}
+                        onChange={(e) => setSelectedMeasurand(e.target.value)}
+                        options={measurandData.map(m => ({ id: m.MeasurandId, value: m.MeasurandName, label: m.MeasurandName }))}
+                        disabled={isDisabled}
+                    />
                 </Grid>
-                <Grid item xs={12} md={6} mx={18}>
+                <Grid item xs={12} md={6} mx={12}>
                     <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', mb: 2 }}>
                         Input List
                     </Typography>
@@ -419,6 +427,7 @@ function Calc() {
                                                 variant="outlined"
                                                 color="error"
                                                 onClick={() => handleRemoveItem(index)}
+                                                disabled={isDisabled}
                                             >
                                                 Remove
                                             </Button>
@@ -431,130 +440,50 @@ function Calc() {
                 </Grid>
             </Grid>
             <Box sx={{ mt: 4, textAlign: 'center' }}>
-                <Button
+                <CustomButton
                     onClick={handleAddItem}
-                    variant='contained'
-                    sx={{
-                        backgroundColor: '#007c87',
-                        color: '#fff',
-                        '&:hover': {
-                            backgroundColor: '#007c87',
-                        },
-                        mr: 3,
-                    }}
-                    disabled={activeStep > 0 || !selectedTerminal || !selectedMeasurand}
-                >
-                    Add to Input List
-                </Button>
-                <Button
+                    label="Add to Input List"
+                    disabled={activeStep > 0 || !calcName || !selectedTerminal || !selectedMeasurand}
+                />
+                <CustomButton
                     onClick={handleNextStep1}
-                    variant="contained"
-                    sx={{
-                        backgroundColor: '#007c87',
-                        color: '#fff',
-                        '&:hover': {
-                            backgroundColor: '#007c87',
-                        },
-                        mr: 3,
-                    }}
+                    label="Next"
                     disabled={completedSteps[0]}
-                >
-                    Next
-                </Button>
-                <Button
-                    onClick={handleCancel}
+                />
+                <TransparentCustomButton
                     variant="outlined"
-                    sx={{
-                        borderColor: '#007c87',
-                        color: '#007c87',
-                        '&:hover': {
-                            borderColor: '#007c87',
-                            backgroundColor: '#007c8710',
-                        },
-                    }}
-                    disabled={isDisabled} // Optionally disable Cancel if desired
-                >
-                    Cancel
-                </Button>
+                    color='success'
+                    onClick={handleCancel}
+                    label="Cancel"
+                    disabled={isDisabled || !calcName}
+                />
             </Box>
             {/* Step 2: Add Formulas */}
             {activeStep >= 1 && (
                 <Box sx={{ mb: 3, mt: 5 }}>
                     <Grid container spacing={4} mt={5}>
                         <Grid item xs={12} md={4}>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={3}>
-                                        <Typography variant="h6" component="label" htmlFor="add-formula" sx={{ mb: 1 }}>
-                                            Add Formula
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={9}>
-                                        <TextField
-                                            id="add-formula"
-                                            label="Add Formula"
-                                            type="text"
-                                            variant="outlined"
-                                            fullWidth
-                                            value={addFormula}
-                                            onChange={(e) => setAddFormula(e.target.value)}
-                                            placeholder="Enter formula"
-                                            disabled={isDisabled2}
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={3}>
-                                        <Typography variant="h6" component="label" htmlFor="output-name" sx={{ mb: 1 }}>
-                                            Output Name
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={9}>
-                                        <TextField
-                                            id="output-name"
-                                            label="Output Name"
-                                            type="text"
-                                            variant="outlined"
-                                            fullWidth
-                                            value={outputName}
-                                            onChange={(e) => setOutputName(e.target.value)}
-                                            placeholder="Enter output name"
-                                            disabled={isDisabled2}
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={3}>
-                                        <Typography variant="h6" component="label" htmlFor="terminal-label" sx={{ mb: 1 }}>
-                                            Terminal
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={9}>
-                                        <FormControl fullWidth>
-                                            <InputLabel id="terminal-label">Terminal</InputLabel>
-                                            <Select
-                                                labelId="terminal-label"
-                                                value={terminal}
-                                                label="Terminal"
-                                                onChange={(e) => setTerminal(e.target.value)}
-                                                disabled={isDisabled2}
-                                            >
-                                                {terminalData.map((terminal) => (
-                                                    <MenuItem key={terminal._id} value={terminal.DisplayName}>
-                                                        {terminal.DisplayName}
-                                                    </MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                </Grid>
-                            </Box>
+                            <InputField
+                                label="Add Formula"
+                                value={addFormula}
+                                onChange={(e) => setAddFormula(e.target.value)}
+                                disabled={isDisabled2}
+                            />
+                            <InputField
+                                label="Output Name"
+                                value={outputName}
+                                onChange={(e) => setOutputName(e.target.value)}
+                                disabled={isDisabled2}
+                            />
+                            <SelectField
+                                label="Terminal"
+                                value={terminal}
+                                onChange={(e) => setTerminal(e.target.value)}
+                                options={terminalData.map(t => ({ id: t._id, value: t.DisplayName, label: t.DisplayName }))}
+                                disabled={isDisabled2}
+                            />
                         </Grid>
-                        <Grid item xs={12} md={6} mx={18}>
+                        <Grid item xs={12} md={6} mx={12}>
                             <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', mb: 2 }}>
                                 Formula List
                             </Typography>
@@ -580,6 +509,7 @@ function Calc() {
                                                         onChange={() => handleToggleDisable(index)}
                                                         color="primary"
                                                         inputProps={{ 'aria-label': 'Enable/Disable Formula' }}
+                                                        disabled={isDisabled2}
                                                     />
                                                 </TableCell>
                                             </TableRow>
@@ -589,52 +519,25 @@ function Calc() {
                             </TableContainer>
                         </Grid>
                     </Grid>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 5, mt: 5 }}>
-                        <Button
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
+                        <CustomButton
                             variant='contained'
                             onClick={handleAddFormula}
-                            sx={{
-                                backgroundColor: '#007c87',
-                                color: '#fff',
-                                '&:hover': {
-                                    backgroundColor: '#005f6b',
-                                },
-                            }}
+                            label="Add to Formula List"
                             disabled={activeStep !== 1 || !addFormula || !outputName}
-
-                        >
-                            Add to Formula List
-                        </Button>
-                        <Button
+                        />
+                        <CustomButton
                             variant="contained"
                             onClick={handleNextStep2}
-                            sx={{
-                                backgroundColor: '#007c87',
-                                color: '#fff',
-                                '&:hover': {
-                                    backgroundColor: '#005f6b',
-                                },
-                            }}
+                            label="Next"
                             disabled={completedSteps[1]}
-                        >
-                            Next
-                        </Button>
-                        <Button
+                        />
+                        <TransparentCustomButton
                             variant="outlined"
                             color="success"
                             onClick={handleFormulaCancel}
-                            sx={{
-                                borderColor: '#007c87',
-                                color: '#007c87',
-                                '&:hover': {
-                                    borderColor: '#005f6b',
-                                    backgroundColor: '#007c8710',
-                                },
-                            }}
-
-                        >
-                            Cancel
-                        </Button>
+                            label="Cancel"
+                        />
                     </Box>
                 </Box>
             )}
@@ -643,130 +546,43 @@ function Calc() {
                 <Box sx={{ mb: 3, mt: 5 }}>
                     <Grid container spacing={2}>
                         <Grid item xs={6}>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={2}>
-                                        <Typography variant="h6" component="label" htmlFor="calculation-type">
-                                            Calculation Type
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <FormControl fullWidth>
-                                            <InputLabel id="calculation-type-label">Calculation Type</InputLabel>
-                                            <Select
-                                                labelId="calculation-type-label"
-                                                id="calculation-type"
-                                                value={calculationType}
-                                                label="Calculation Type"
-                                                onChange={(e) => setCalculationType(e.target.value)}
-                                            >
-                                                <MenuItem value="single">Single</MenuItem>
-                                                <MenuItem value="stream">Stream</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={2}>
-                                        <Typography variant="h6" component="label" htmlFor="reset-interval">
-                                            Reset Interval
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <TextField
-                                            id="reset-interval"
-                                            label="Reset Interval"
-                                            type="number"
-                                            variant="outlined"
-                                            fullWidth
-                                            value={resetInterval}
-                                            onChange={(e) => setResetInterval(e.target.value)}
-                                            placeholder="Enter reset interval"
-
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={2}>
-                                        <Typography variant="h6" component="label" htmlFor="sub-interval">
-                                            Sub Interval
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <TextField
-                                            id="sub-interval"
-                                            label="Sub Interval"
-                                            type="number"
-                                            variant="outlined"
-                                            fullWidth
-                                            value={subInterval}
-                                            onChange={(e) => setSubInterval(e.target.value)}
-                                            placeholder="Enter sub interval"
-
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid item xs={2}>
-                                        <Typography variant="h6" component="label" htmlFor="delay">
-                                            Delay
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <TextField
-                                            id="delay"
-                                            label="delay"
-                                            type="number"
-                                            variant="outlined"
-                                            fullWidth
-                                            value={delay}
-                                            onChange={(e) => setDelay(e.target.value)}
-                                            placeholder="Enter delay"
-
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Box>
+                            <SelectField
+                                label="Calculation Type"
+                                value={calculationType}
+                                onChange={(e) => setCalculationType(e.target.value)}
+                                options={[{ value: 'single', label: 'Single' }, { value: 'stream', label: 'Stream' }]}
+                            />
+                            <InputField
+                                label="Reset Interval"
+                                value={resetInterval}
+                                onChange={(e) => setResetInterval(e.target.value)}
+                            />
+                            <InputField
+                                label="Sub Interval"
+                                value={subInterval}
+                                onChange={(e) => setSubInterval(e.target.value)}
+                            />
+                            <InputField
+                                label="Delay"
+                                value={delay}
+                                onChange={(e) => setDelay(e.target.value)}
+                            />
                         </Grid>
                     </Grid>
                     {/* Buttons: Add Formula */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 5, mt: 4 }}>
-                        <Button
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                        <CustomButton
                             variant="contained"
                             onClick={handleNextStep3}
-                            sx={{
-                                backgroundColor: '#007c87',
-                                color: '#fff',
-                                '&:hover': {
-                                    backgroundColor: '#005f6b',
-                                },
-                            }}
+                            label="Submit"
                             disabled={activeStep !== 2 || !calculationType || !resetInterval || !subInterval || !delay}
-                        >
-                            Next
-                        </Button>
-                        <Button
+                        />
+                        <TransparentCustomButton
                             variant="outlined"
                             color="success"
                             onClick={handlesettingsCancel}
-                            sx={{
-                                borderColor: '#007c87',
-                                color: '#007c87',
-                                '&:hover': {
-                                    borderColor: '#005f6b',
-                                    backgroundColor: '#007c8710',
-                                },
-                            }}
-
-                        >
-                            Cancel
-                        </Button>
+                            label="Cancel"
+                        />
                     </Box>
                 </Box>
             )}
