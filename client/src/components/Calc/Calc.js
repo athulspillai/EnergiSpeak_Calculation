@@ -109,7 +109,6 @@ const TransparentCustomButton = ({ onClick, label, disabled, variant = 'containe
 );
 
 function Calc() {
-    const steps = ['Input Details', 'Add Formulas', 'Additional Settings'];
     const [activeStep, setActiveStep] = useState(0);
     const [calcName, setCalcName] = useState('');
     const [selectedTerminal, setSelectedTerminal] = useState('');
@@ -175,21 +174,28 @@ function Calc() {
                     alert('This terminal and measurand combination already exists in the input list.');
                     return;
                 }
-
+    
                 try {
+                    // Fetching the terminal data
                     const response = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${terminal._id}`);
-                    const measurandValue = response.data.Data[measurand.MeasurandName];
+                    const measurandData = response.data.MeasurandData;
+    
+                    // Find the measurand value based on MeasurandId
+                    const measurandValueObj = measurandData.find(m => m.MeasurandId === measurand.MeasurandId);
+                    const measurandValue = measurandValueObj ? measurandValueObj.MeasurandValue : '0';
+    
                     console.log(measurandValue);
-
-
+    
+                    // Add the new item to the items state
                     setItems([...items, {
                         terminal: terminal.DisplayName,
                         terminalId: terminal._id,
                         measurand: measurand.MeasurandName,
                         measurandId: measurand.MeasurandId,
-                        value: measurandValue || '0'
+                        value: measurandValue
                     }]);
-
+    
+                    // Reset selected values
                     setSelectedTerminal('');
                     setSelectedMeasurand('');
                 } catch (error) {
@@ -200,6 +206,7 @@ function Calc() {
             alert("Please select both a terminal and a measurand.");
         }
     };
+    
 
     const handleAddFormula = () => {
         if (addFormula.trim() === '' || outputName.trim() === '' || !terminal) {
@@ -335,14 +342,13 @@ function Calc() {
 
         try {
             // Send data to the server for saving the calculation
-            const response = await axios.post(`${process.env.REACT_APP_SERVER_URL}/add-calc`, calculationData);
+            await axios.post(`${process.env.REACT_APP_SERVER_URL}/add-calc`, calculationData);
             alert('Calculation saved successfully!');
             handleCancel(); // Reset the form after successful submission
         } catch (error) {
             console.error('Error saving calculation:', error);
             alert('Failed to save calculation.');
         }
-
         // Refresh the page
         window.location.reload();
     };
