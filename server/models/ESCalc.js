@@ -16,20 +16,16 @@ const esCalcSchema = new mongoose.Schema({
                 required: true
             },
             TerminalId: {
-                type: Number,  // Storing TerminalId as a number
+                type: Number,
                 required: true
             },
             MeasurandId: {
-                type: Number,  // Storing MeasurandId as a number
+                type: Number,
                 required: true
             },
             MeasurandName: {
-                type: String,  // Storing MeasurandName as a string
+                type: String,
             },
-            MeasurandValue: {
-                type: String,  // Storing MeasurandValue as a string
-                
-            }
         }
     ],
     OutputList: [
@@ -39,15 +35,15 @@ const esCalcSchema = new mongoose.Schema({
                 required: true
             },
             Formula: {
-                type: String,  // Storing formula as a string
+                type: String,  
                 required: true
             },
             MeasurandName: {
-                type: String,  // Storing output name as a string
+                type: String, 
                 required: true
             },
             TerminalId: {
-                type: Number,  // Storing TerminalId as a number
+                type: Number,
                 required: true
             },
         }
@@ -56,15 +52,15 @@ const esCalcSchema = new mongoose.Schema({
         type: String,
     },
     ResetInterval: {
-        type: Number,  // Change to Number
+        type: Number,
     },
     SubInterval: {
-        type: Number,  // Change to Number
+        type: Number,
     },
     Delay: {
-        type: Number,  // Change to Number
+        type: Number, 
     },
-});
+}, { collection: 'ESCalc' });
 
 const ESCalc = mongoose.model('ESCalc', esCalcSchema);
 

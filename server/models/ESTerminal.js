@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// Main schema for ESTerminal
 const esTerminalSchema = new mongoose.Schema({
     _id: { type: Number },
     Terminalid: { type: Number, required: true },
@@ -41,9 +40,8 @@ const esTerminalSchema = new mongoose.Schema({
         ModQueryId: { type: Number, required: true },
         ModQueryName: { type: String, required: true }
     }]
-}, { timestamps: true });
+}, { collection: 'ESTerminal'}, { timestamps: true });
 
-// Model creation
 const ESTerminal = mongoose.model('ESTerminal', esTerminalSchema);
 
 export default ESTerminal;

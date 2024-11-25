@@ -37,7 +37,6 @@ router.post('/add-calc', async (req, res) => {
             TerminalId: item.terminalId,
             MeasurandId: item.measurandId,
             MeasurandName: item.measurand,
-            MeasurandValue: item.value
         }));
 
         const outputList = outputs.map((output, index) => ({
@@ -80,20 +79,26 @@ router.post('/add-calc', async (req, res) => {
         setTimeout(async () => {
             try {
                 const currentValues = {};
-
+        
                 // Step 1: Fetch current values for each item in the inputs (items list)
                 for (const item of items) {
                     const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${item.terminalId}`);
-                    const measurandData = measurandResponse.data.Data;
-
-                    // Map each input's MeasurandName to its MeasurandValue for formula evaluation
-                    currentValues[`I${items.indexOf(item) + 1}`] = measurandData[item.measurand];
+                    const measurandDataArray = measurandResponse.data.MeasurandData;
+        
+                    // Find the specific measurand based on MeasurandName
+                    const measurandData = measurandDataArray.find(measurand => measurand.MeasurandName === item.measurand);
+        
+                    if (measurandData) {
+                        currentValues[`I${items.indexOf(item) + 1}`] = parseFloat(measurandData.MeasurandValue); // Ensure value is numeric
+                    } else {
+                        console.warn(`Measurand ${item.measurand} not found for TerminalId ${item.terminalId}`);
+                    }
                 }
-
+        
                 // Step 2: Evaluate each output formula using the fetched current values
                 for (const output of outputs) {
                     const calculatedValue = evaluateFormula(output.formula, currentValues);
-
+        
                     // Step 3: Store the result back into CDNuts for the specific TerminalId
                     await axios.put(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${output.terminalId}`, {
                         MeasurandName: output.outputName,
@@ -105,6 +110,7 @@ router.post('/add-calc', async (req, res) => {
                 console.error("Error during delayed CDNuts update:", error);
             }
         }, updateDelay);
+        
 
         const startCalculationLoop = async () => {
             let delayTaskCompleted = false; // Flag to check if delay task has completed
@@ -170,19 +176,29 @@ router.post('/add-calc', async (req, res) => {
         async function delayIntervalrunTask(items, outputs, evaluateFormula) {
             try {
                 const currentValues = {};
-
+        
+                // Define a function to get the MeasurandValue based on MeasurandName
+                function getMeasurandValue(measurandName, measurandData) {
+                    const measurand = measurandData.find(item => item.MeasurandName === measurandName);
+                    return measurand ? parseFloat(measurand.MeasurandValue) : null; // Return the MeasurandValue or null if not found
+                }
+        
                 for (const item of items) {
                     const itemTerminalId = item.terminalId;
                     const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${itemTerminalId}`);
-                    const measurandData = measurandResponse.data.Data;
-
+                    const measurandData = measurandResponse.data.MeasurandData;
+        
                     for (const input of inputList) {
                         if (input.TerminalId === itemTerminalId) {
-                            currentValues[input.InputId] = measurandData[input.MeasurandName];
+                            const measurandValue = getMeasurandValue(input.MeasurandName, measurandData);
+                            if (measurandValue !== null) {
+                                currentValues[input.InputId] = measurandValue;
+                            }
                         }
                     }
                 }
-
+        
+                // Process output values
                 for (const output of outputList) {
                     const calculatedValue = evaluateFormula(output.Formula, currentValues);
                     await axios.put(`${process.env.REACT_APP_SERVER_URL}/updates-delay/cdnuts/${output.MeasurandId}`, {
@@ -191,25 +207,33 @@ router.post('/add-calc', async (req, res) => {
                     });
                     console.log(`Delay: Updated output ${output.MeasurandName} to ${calculatedValue} for TerminalId ${output.TerminalId}`);
                 }
-
+        
             } catch (error) {
                 console.error("Error fetching current values or updating outputs:", error);
             }
         }
+        
 
         async function subIntervalrunTask(items, outputs, evaluateFormula) {
             try {
                 const currentValues = {};
 
-                // Fetch current values for each input item
+                function getMeasurandValue(measurandName, measurandData) {
+                    const measurand = measurandData.find(item => item.MeasurandName === measurandName);
+                    return measurand ? parseFloat(measurand.MeasurandValue) : null; // Return the MeasurandValue or null if not found
+                }
+        
                 for (const item of items) {
                     const itemTerminalId = item.terminalId;
                     const measurandResponse = await axios.get(`${process.env.REACT_APP_SERVER_URL}/cdnuts/${itemTerminalId}`);
-                    const measurandData = measurandResponse.data.Data;
-
+                    const measurandData = measurandResponse.data.MeasurandData;
+        
                     for (const input of inputList) {
                         if (input.TerminalId === itemTerminalId) {
-                            currentValues[input.InputId] = measurandData[input.MeasurandName];
+                            const measurandValue = getMeasurandValue(input.MeasurandName, measurandData);
+                            if (measurandValue !== null) {
+                                currentValues[input.InputId] = measurandValue;
+                            }
                         }
                     }
                 }
@@ -270,17 +294,17 @@ router.post('/add-calc', async (req, res) => {
 });
 
 router.put('/updates/cdnuts/:MeasurandId', async (req, res) => {
-    const { MeasurandId } = req.params; // Get MeasurandID from the URL parameters
-    const { MeasurandName, UpdatedMeasurandValue } = req.body; // Get data from the request body
+    const { MeasurandId } = req.params;
+    const { MeasurandName, UpdatedMeasurandValue } = req.body;
 
     try {
         // Update the MeasurandName and MeasurandValue in the MeasurandData array
         const updatedRecord = await CDNuts.updateOne(
-            { "MeasurandData.MeasurandId": MeasurandId }, // Locate the document with the array item that matches MeasurandId
+            { "MeasurandData.MeasurandId": MeasurandId },
             {
                 $set: {
-                    "MeasurandData.$.MeasurandName": MeasurandName, // Update the MeasurandName within the array
-                    "MeasurandData.$.MeasurandValue": UpdatedMeasurandValue // Update the MeasurandValue within the array
+                    "MeasurandData.$.MeasurandName": MeasurandName,
+                    "MeasurandData.$.MeasurandValue": UpdatedMeasurandValue
                 }
             }
         );
@@ -289,9 +313,6 @@ router.put('/updates/cdnuts/:MeasurandId', async (req, res) => {
         if (updatedRecord.nModified === 0) {
             return res.status(404).json({ message: 'Record not found or not updated' });
         }
-
-        // console.log(`Updated Measurand: Name - ${MeasurandName}, Value - ${UpdatedMeasurandValue}`);
-
 
         return res.status(200).json({ message: 'Record updated successfully' });
     } catch (error) {
@@ -301,17 +322,17 @@ router.put('/updates/cdnuts/:MeasurandId', async (req, res) => {
 });
 
 router.put('/updates/values/cdnuts/:MeasurandId', async (req, res) => {
-    const { MeasurandId } = req.params; // Get MeasurandID from the URL parameters
-    const { MeasurandName, UpdatedValue } = req.body; // Get data from the request body
+    const { MeasurandId } = req.params; 
+    const { MeasurandName, UpdatedValue } = req.body;
 
     try {
         // Update the MeasurandName and MeasurandValue in the MeasurandData array
         const updatedRecord = await CDNuts.updateOne(
-            { "MeasurandData.MeasurandId": MeasurandId }, // Locate the document with the array item that matches MeasurandId
+            { "MeasurandData.MeasurandId": MeasurandId }, 
             {
                 $set: {
-                    "MeasurandData.$.MeasurandName": MeasurandName, // Update the MeasurandName within the array
-                    "MeasurandData.$.MeasurandValue": UpdatedValue // Update the MeasurandValue within the array
+                    "MeasurandData.$.MeasurandName": MeasurandName, 
+                    "MeasurandData.$.MeasurandValue": UpdatedValue 
                 }
             }
         );
@@ -321,10 +342,8 @@ router.put('/updates/values/cdnuts/:MeasurandId', async (req, res) => {
             return res.status(404).json({ message: 'Record not found or not updated' });
         }
 
-        // console.log(`Updated Measurand: Name - ${MeasurandName}, Value - ${UpdatedValue}`);
-
-
         return res.status(200).json({ message: 'Record updated successfully' });
+
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: 'Server error', error: error.message });
@@ -332,17 +351,17 @@ router.put('/updates/values/cdnuts/:MeasurandId', async (req, res) => {
 });
 
 router.put('/updates-delay/cdnuts/:MeasurandId', async (req, res) => {
-    const { MeasurandId } = req.params; // Get MeasurandID from the URL parameters
-    const { MeasurandName, UpdateddelayValue } = req.body; // Get data from the request body
+    const { MeasurandId } = req.params; 
+    const { MeasurandName, UpdateddelayValue } = req.body; 
 
     try {
         // Update the MeasurandName and MeasurandValue in the MeasurandData array
         const updatedRecord = await CDNuts.updateOne(
-            { "MeasurandData.MeasurandId": MeasurandId }, // Locate the document with the array item that matches MeasurandId
+            { "MeasurandData.MeasurandId": MeasurandId }, 
             {
                 $set: {
-                    "MeasurandData.$.MeasurandName": MeasurandName, // Update the MeasurandName within the array
-                    "MeasurandData.$.MeasurandValue": UpdateddelayValue // Update the MeasurandValue within the array
+                    "MeasurandData.$.MeasurandName": MeasurandName, 
+                    "MeasurandData.$.MeasurandValue": UpdateddelayValue 
                 }
             }
         );
@@ -352,10 +371,8 @@ router.put('/updates-delay/cdnuts/:MeasurandId', async (req, res) => {
             return res.status(404).json({ message: 'Record not found or not updated' });
         }
 
-        // console.log(`Updated Measurand: Name - ${MeasurandName}, Value - ${UpdatedMeasurandValue}`);
-
-
         return res.status(200).json({ message: 'Record updated successfully' });
+
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: 'Server error', error: error.message });
@@ -412,7 +429,7 @@ router.get('/cdnuts/:TerminalId', async (req, res) => {
     try {
         const { TerminalId } = req.params;
 
-        const cdnut = await CDNuts.findOne({ TerminalId }).select('Data');
+        const cdnut = await CDNuts.findOne({ TerminalId }).select('MeasurandData');
 
         if (!cdnut) {
             return res.status(404).json({ message: 'CDNuts not found' });
@@ -505,120 +522,5 @@ router.put('/cdnuts/:TerminalId', async (req, res) => {
         res.status(500).json({ message: 'Failed to update CDNuts', error });
     }
 });
-
-
-router.put('/update/cdnuts/:TerminalId', async (req, res) => {
-    try {
-        const { TerminalId } = req.params;
-        const { secondsToAdd } = req.body;
-
-        // Validate input
-        if (typeof secondsToAdd !== 'number') {
-            return res.status(400).json({ message: 'secondsToAdd must be a number.' });
-        }
-
-        // Find the CDNuts entry
-        const cdnut = await CDNuts.findOne({ TerminalId });
-        if (!cdnut) {
-            return res.status(404).json({ message: 'CDNuts not found' });
-        }
-
-        // Update the Timestamp
-        const updatedTimestamp = new Date(cdnut.TimestampId);
-        updatedTimestamp.setSeconds(updatedTimestamp.getSeconds() + secondsToAdd);
-
-        // Update the Data
-        const updatedData = {};
-        for (const key in cdnut.Data) {
-            if (typeof cdnut.Data[key] === 'number') {
-                updatedData[key] = cdnut.Data[key] + 5; // Adjust as needed
-            }
-        }
-
-        // Update CDNuts document
-        const updatedCdnut = await CDNuts.findOneAndUpdate(
-            { TerminalId },
-            { TimestampId: updatedTimestamp, Data: { ...cdnut.Data, ...updatedData } },
-            { new: true }
-        );
-
-        // Update ESCalc InputList based on the updated CDNuts
-        for (const [measurandName, measurandValue] of Object.entries(updatedData)) {
-            await ESCalc.updateMany(
-                { "InputList.TerminalId": TerminalId, "InputList.MeasurandName": measurandName },
-                { $set: { "InputList.$[elem].MeasurandValue": measurandValue } },
-                { arrayFilters: [{ "elem.TerminalId": TerminalId, "elem.MeasurandName": measurandName }] }
-            );
-        }
-
-        // Recalculate OutputList based on updated InputList
-        const escalcs = await ESCalc.find({ "InputList.TerminalId": TerminalId });
-
-        for (const escalc of escalcs) {
-            const outputList = escalc.OutputList;
-
-            for (const output of outputList) {
-                const formula = output.Formula;
-                console.log('Formula:', formula);
-
-                // Evaluate the formula using the current InputList MeasurandValue
-                const inputValues = {};
-                for (const input of escalc.InputList) {
-                    console.log(`Checking input: ${input.MeasurandName} with TerminalId: ${input.TerminalId}`);
-                    console.log(`Comparing with TerminalId: ${TerminalId}`);
-                    if (input.TerminalId == TerminalId) {  // Using == to allow type coercion
-                        inputValues[input.MeasurandName] = parseFloat(input.MeasurandValue) || 0; // Ensure it's a number
-                    }
-                }
-
-                console.log('Input Values:', inputValues); // Log the populated inputValues object
-
-                // Create a mapping for formula variables dynamically
-                const variableMapping = {};
-                let variableCounter = 1; // To create I1, I2, I3, etc.
-
-                for (const key in inputValues) {
-                    if (inputValues.hasOwnProperty(key)) {
-                        variableMapping[`I${variableCounter}`] = inputValues[key];
-                        variableCounter++;
-                    }
-                }
-
-                console.log('Variable Mapping:', variableMapping); // Log the variable mapping
-
-                // Replace variables in the formula with their corresponding values
-                let evaluatedFormula = formula.replace(/I\d+/g, (match) => variableMapping[match] || 0);
-
-                // Use a simple eval function to calculate the output based on the formula
-                let recalculatedValue;
-                try {
-                    recalculatedValue = eval(evaluatedFormula);
-                } catch (err) {
-                    console.error('Error evaluating formula:', evaluatedFormula, err);
-                    continue; // Skip this output if there's an error
-                }
-
-                // Update the OutputList MeasurandValue
-                await ESCalc.updateOne(
-                    { _id: escalc._id, "OutputList.MeasurandID": output.MeasurandID },
-                    { $set: { " OutputList.$.MeasurandValue": recalculatedValue } }
-                );
-
-                // Update CDNuts MeasurandData with the recalculated value
-                await CDNuts.updateOne(
-                    { MeasurandData: { $elemMatch: { MeasurandId: output.MeasurandID } }, "MeasurandData.MeasurandId": output.MeasurandID },
-                    { $set: { "MeasurandData.$.MeasurandValue": recalculatedValue } }
-                );
-            }
-        }
-
-        res.status(200).json({ message: 'Timestamp, data, and outputs updated successfully', TimestampId: updatedCdnut.TimestampId });
-    } catch (error) {
-        console.error('Error updating CDNuts:', error);
-        res.status(500).json({ message: 'Failed to update CDNuts', error });
-    }
-});
-
-
 
 export default router;
